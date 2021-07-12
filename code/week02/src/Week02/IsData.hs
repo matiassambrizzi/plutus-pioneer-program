@@ -32,6 +32,8 @@ import           Text.Printf          (printf)
 
 newtype MySillyRedeemer = MySillyRedeemer Integer
 
+-- ''Type con '' le pasas un tipo, el compilador nos va a generar las intancias
+-- del typeclass en compiletime, nos genera el AST que hace eso
 PlutusTx.unstableMakeIsData ''MySillyRedeemer
 
 {-# INLINABLE mkValidator #-}

@@ -30,6 +30,7 @@ import           Text.Printf         (printf)
 
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
+-- Validador que chequear el redemeer
 {-# INLINABLE mkValidator #-}
 mkValidator :: Data -> Data -> Data -> ()
 mkValidator _ r _

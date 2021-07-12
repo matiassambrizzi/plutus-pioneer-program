@@ -39,6 +39,9 @@ instance Scripts.ValidatorTypes Typed where
     type instance DatumType Typed = ()
     type instance RedeemerType Typed = Integer
 
+-- @ -> Type arguments?
+-- Se necesita TypeApplications
+-- read @Int "1234" ---> le decis q el generico es un Int
 typedValidator :: Scripts.TypedValidator Typed
 typedValidator = Scripts.mkTypedValidator @Typed
     $$(PlutusTx.compile [|| mkValidator ||])
