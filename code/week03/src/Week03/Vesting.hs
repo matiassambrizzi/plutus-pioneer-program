@@ -39,8 +39,18 @@ data VestingDatum = VestingDatum
     , deadline    :: POSIXTime
     } deriving Show
 
+-- Esto es para generar la instancia de isData de VestingDatum, para usarlo
+-- como Redeemer o Datum
+-- usa template haskell
 PlutusTx.unstableMakeIsData ''VestingDatum
 
+-- OBS: Lo que vive on-chain es el hash del codigo plutus del validador, y en todo caso el datum
+-- el codigo off-chain debera enviar el validador al nodo para que lo corra
+
+-- Antes de que se corra el validador, se verifica que la tx no expiro
+-- o esta en el intervalo correcto de tiempo
+--
+-- txInfoValidRange ScriptInfo -> Esto te da el intervalo de tiempo en el que la tx es valida 
 {-# INLINABLE mkValidator #-}
 mkValidator :: VestingDatum -> () -> ScriptContext -> Bool
 mkValidator dat () ctx = traceIfFalse "beneficiary's signature missing" signedByBeneficiary &&
@@ -86,6 +96,9 @@ type VestingSchema =
             Endpoint "give" GiveParams
         .\/ Endpoint "grab" ()
 
+-- una trasaccion que produce un UTXO tiene que proveer el hash del validador
+-- luego la tx que lo consuma tiene que pasar el codigo del validor, que el nodo
+-- se encargara de chequear que tenga el hash correspondiente
 give :: AsContractError e => GiveParams -> Contract w s e ()
 give gp = do
     let dat = VestingDatum
@@ -93,6 +106,7 @@ give gp = do
                 , deadline    = gpDeadline gp
                 }
         tx  = mustPayToTheScript dat $ Ada.lovelaceValueOf $ gpAmount gp
+        -- aca mando plata al script y le digo con q validador tiene que validar?
     ledgerTx <- submitTxConstraints typedValidator tx
     void $ awaitTxConfirmed $ txId ledgerTx
     logInfo @String $ printf "made a gift of %d lovelace to %s with deadline %s"
@@ -100,6 +114,7 @@ give gp = do
         (show $ gpBeneficiary gp)
         (show $ gpDeadline gp)
 
+-- una trasaccion que consume un UTXO tiene que proveer el codigo del validador
 grab :: forall w s e. AsContractError e => Contract w s e ()
 grab = do
     now   <- currentTime

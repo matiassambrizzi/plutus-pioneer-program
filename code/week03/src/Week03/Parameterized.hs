@@ -40,9 +40,18 @@ data VestingParam = VestingParam
     , deadline    :: POSIXTime
     } deriving Show
 
+-- Esto es para poder user liftCode y compilar a Plutus Core en runtime
+-- obs: solo para data
 PlutusTx.makeLift ''VestingParam
 
+-- Los scripts se pueden parametrizar
+-- Dame los parametros y te devuelvo el validador
+-- el validador cambia con los parametros
+-- ahora el txhash, address , .. van a depender de los parametros
+
+-- template haskell se corre antes del compilador
 {-# INLINABLE mkValidator #-}
+-- Parameters -> Datum -> Redeemer -> Ctx -> Bool
 mkValidator :: VestingParam -> () -> () -> ScriptContext -> Bool
 mkValidator p () () ctx = traceIfFalse "beneficiary's signature missing" signedByBeneficiary &&
                           traceIfFalse "deadline not reached" deadlineReached
@@ -63,6 +72,8 @@ instance Scripts.ValidatorTypes Vesting where
 
 typedValidator :: VestingParam -> Scripts.TypedValidator Vesting
 typedValidator p = Scripts.mkTypedValidator @Vesting
+    -- p se define en runTime, depende de los parametros que le metas
+    -- como p es solo un typo, se puede user liftCode para compilar en run time a plutus code
     ($$(PlutusTx.compile [|| mkValidator ||]) `PlutusTx.applyCode` PlutusTx.liftCode p)
     $$(PlutusTx.compile [|| wrap ||])
   where

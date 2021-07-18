@@ -15,7 +15,7 @@
 module Week03.Homework1 where
 
 import           Control.Monad        hiding (fmap)
-import           Data.Aeson           (ToJSON, FromJSON)
+import           Data.Aeson           (ToJSON, FromJSON, Value (Bool))
 import           Data.Map             as Map
 import           Data.Text            (Text)
 import           Data.Void            (Void)
@@ -42,11 +42,49 @@ data VestingDatum = VestingDatum
 
 PlutusTx.unstableMakeIsData ''VestingDatum
 
+-- hasta el deadline puede tomar en bn1 y dsp el bn2, ej un swap que lo podria recuperar si expira
+-- 
+-- Cardano define un intervalo de tiempo valido en la cual la tx es valida
+-- el nodo antes de correr el validador chequea el tiempo actual y lo valida con el rango valido de la tx
+-- si el tiempo catual no cae en el interalo entonces rechaza y no corre el validador
+-- esta data esta en la tx
+-- el chequeo del tiempo se hace antes de correr el validador para que sea deterministico
+-- y q el validador no dependa de cuando se corre
+
+-- plutus usa POSIXTime
+-- ouroboros usa slots
+--
+-- OBS: Solo se puede estar seguro cuando tiempo dura sun slot hasta 36hrl xq
+-- te pueden cambiar los parametros del protocolo y la conversion cambia
+--
+-- TODO: Probar
+
 {-# INLINABLE mkValidator #-}
 -- This should validate if either beneficiary1 has signed the transaction and the current slot is before or at the deadline
 -- or if beneficiary2 has signed the transaction and the deadline has passed.
 mkValidator :: VestingDatum -> () -> ScriptContext -> Bool
-mkValidator _ _ _ = False -- FIX ME!
+mkValidator dat () ctx =
+  traceIfFalse "No podes agarrar la plata, ya expiro" (deadlineNotReached && signedByBeneficiary dat)
+    || traceIfFalse "todavia no expiro querido" (deadlineReached && signedByOwner dat)
+  where
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
+
+    txValidRange :: POSIXTimeRange
+    txValidRange = txInfoValidRange info
+
+    deadlineReached :: Bool
+    deadlineReached = (from (1 + deadline dat)) `contains` txValidRange
+
+    -- el deadline no se alcanzo si el rango de la tx esta contenido en -inf a (deadline dat)
+    deadlineNotReached :: Bool
+    deadlineNotReached = to (deadline dat) `contains` txValidRange
+
+    signedBy :: PubKeyHash -> Bool
+    signedBy = txSignedBy info
+
+    signedByOwner = signedBy . beneficiary2
+    signedByBeneficiary = signedBy . beneficiary1
 
 data Vesting
 instance Scripts.ValidatorTypes Vesting where
