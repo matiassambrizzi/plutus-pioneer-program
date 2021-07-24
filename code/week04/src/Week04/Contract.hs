@@ -15,6 +15,68 @@ import Wallet.Emulator.Wallet
 
 -- Contract w s e a
 -- EmulatorTrace a
+--
+--
+-- Contract w s e a
+--
+-- w -> Writer, log messages, comunicacion entre contratos
+-- s -> Endpoints
+-- e -> Error messages
+-- a -> Resultado
+--
+-- EmulatorTrace a
+-- OverloadedStrings -> Usa el typeclass IsString, que define una funcion fromString :: String -> a
+-- el compilador agarra el string y le aplica fromString ej
+-- foo :: Text -> Text
+-- foo x = x ++ "Hola" ==El compilador lo traduce a== foo x = x + fromString "Hola"
+-- TypeApplications -> Sirve para pasar el tipo a las funcione polimorifcas con @
+-- TypeOperators -> Extension que sirve para definir operadores sobre tipos ej \/
+
+matiContract :: Contract () EmptySchema Text ()
+matiContract = 
+  void $ Contract.throwError "Boom" >>= \x ->
+  Contract.logInfo @String "Hello world"
+
+matiTrace :: EmulatorTrace ()
+matiTrace = do
+  handle <- activateContractWallet (Wallet 1) contractWithSchema
+  callEndpoint @"hola" handle 42
+  callEndpoint @"bar" handle "chau"
+
+testMati :: IO ()
+testMati = runEmulatorTraceIO matiTrace
+
+matiContract' :: Contract () EmptySchema Void ()
+matiContract' = 
+  Contract.handleError 
+    (\e -> Contract.logError $ "Agarramo el error " ++ unpack e) 
+    matiContract
+
+-- "hola" --> type level String, string que se usa como tipo
+-- necesito DataKinds para esto ?
+type TestSchema = Endpoint "hola" Int .\/ Endpoint "bar" String
+
+contractWithSchema :: Contract () TestSchema Text ()
+contractWithSchema = do
+  x <- endpoint @"hola" 
+  -- Monadic computation, hay q esescificar el endpoint, espera q que le pasen el valor desde fuera, en este caso Int
+  Contract.logInfo x
+  y <- endpoint @"bar"
+  Contract.logInfo y
+
+contractWithW :: Contract [Int] Empty Text ()
+contractWithW = do
+  void $ Contract.waitNSlots 10
+  tell [1]
+  void $ Contract.waitNSlots 10
+  tell [2]
+
+traceContractWithW :: EmulatorTrace ()
+traceContractWithW = do
+  h <- activateContractWallet (Wallet 1) contractWithW
+  void $ Emulator.waitNSlots 5
+  xs <- observableState h
+  Extras.logInfo $ show xs
 
 myContract1 :: Contract () Empty Text ()
 myContract1 = do

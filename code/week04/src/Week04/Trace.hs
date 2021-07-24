@@ -13,12 +13,11 @@ import Wallet.Emulator.Wallet
 
 import Week04.Vesting
 
--- Contract w s e a
--- EmulatorTrace a
 
 test :: IO ()
 test = runEmulatorTraceIO myTrace
 
+-- Esto es para evitar simular en el playground
 myTrace :: EmulatorTrace ()
 myTrace = do
     h1 <- activateContractWallet (Wallet 1) endpoints
